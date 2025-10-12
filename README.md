@@ -157,4 +157,5 @@ Verify API key and URL format (must start with `http://` or `https://`).
 This code is part of an AI Developer assignment for Hop Online.
 
 ## Author
+Author: Rostislav Atanasov
 Created as part of the RAG System Proof-of-Concept assignment.
