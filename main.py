@@ -8,11 +8,11 @@ from google.genai.errors import APIError
 from pinecone import Pinecone, ServerlessSpec
 
 # --- Configuration ---
-TARGET_URL = os.environ.get('TARGET_URL', 'https://stripe.com/docs/billing')
+TARGET_URL = os.environ.get('TARGET_URL', 'https://docs.stripe.com/api/')
 PINECONE_API_KEY = os.environ.get('PINECONE_API_KEY')
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 FIRECRAWL_API_KEY = os.environ.get('FIRECRAWL_API_KEY')
-INDEX_NAME = os.environ.get('INDEX_NAME', 'test-poc')
+INDEX_NAME = os.environ.get('INDEX_NAME', 'stripe-api')
 CRAWL_MODE = os.environ.get('CRAWL_MODE', 'single')  # 'single' or 'crawl'
 MAX_PAGES = int(os.environ.get('MAX_PAGES', '10'))  # Maximum pages to crawl
 
@@ -329,4 +329,5 @@ def ingest_data(request):
         print(error_msg)
         import traceback
         print(traceback.format_exc())
+
         return error_msg, 500
