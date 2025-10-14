@@ -1,134 +1,40 @@
-# RAG System - Data Ingestion Cloud Function
+## 💻 Code Overview: Data Ingestion Module (`main.py`)
 
-## Overview
-This Google Cloud Function implements the data ingestion pipeline for a RAG (Retrieval-Augmented Generation) system. It scrapes website content, processes it into chunks, generates embeddings using Google Gemini AI, and stores them in a Pinecone vector database.
+This document details the Google Cloud Function responsible for the **Data Ingestion** pipeline of the RAG (Retrieval-Augmented Generation) system. It ensures content is reliably scraped, vectorized, and stored in a queryable format.
 
-## Architecture
-```
-Website → Firecrawl (Scraping) → Text Chunking → Gemini Embeddings → Pinecone Vector DB
-```
+### Architecture
 
-## Features
-- **Smart Web Scraping**: Uses Firecrawl API for reliable content extraction
-- **Crawl Modes**: 
-  - `single`: Scrape one page
-  - `crawl`: Scrape multiple pages and subdomains
-- **Intelligent Chunking**: Overlapping text chunks for better context preservation
-- **Vector Embeddings**: Google Gemini `text-embedding-004` model (768 dimensions)
-- **Batch Processing**: Efficient uploads to Pinecone with configurable batch size
-- **Unique ID Generation**: URL-based hashing prevents data overwriting from multiple sources
+The pipeline is **event-driven** and **serverless**:
 
-## Files
-- `main.py` - Cloud Function entry point and core logic
-- `requirements.txt` - Python dependencies
+`HTTP Trigger` → `Firecrawl (Scraping)` → `Text Chunking` → `Gemini Embeddings` → `Pinecone Vector DB`
 
-## Environment Variables
+-----
 
-| Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
-| `TARGET_URL` | Website URL to scrape | No | `https://stripe.com/docs/billing` |
-| `PINECONE_API_KEY` | Pinecone API key | Yes | - |
-| `GEMINI_API_KEY` | Google Gemini API key | Yes | - |
-| `FIRECRAWL_API_KEY` | Firecrawl API key | Yes | - |
-| `INDEX_NAME` | Pinecone index name | No | `test-poc` |
-| `CRAWL_MODE` | `single` or `crawl` | No | `single` |
-| `MAX_PAGES` | Max pages to crawl | No | `10` |
+## ✨ Technical Highlights and Features
 
-## Configuration
+| Functionality | Purpose | Technical Implementation |
+| :--- | :--- | :--- |
+| **Intelligent Chunking** | Splits large text into RAG-ready segments. | Uses the custom **`chunk_text`** function with a **1000-character chunk size** and **50-character overlap** to preserve context. |
+| **Vector Embeddings** | Creates 768-dimensional vector representations. | Employs the **Gemini API** (`google.genai`) with the **`models/text-embedding-004`** model, guaranteeing dimensional consistency with the Pinecone index. |
+| **Batch Processing** | Ensures efficient, reliable uploads to the vector database. | **Critically implements batch processing (`BATCH_SIZE = 100`)** during `pinecone.upsert` within the `ingest_data` function. This solves potential **out-of-memory errors** and **timeouts** in the serverless environment. |
+| **Unique IDs** | Prevents data corruption on repeated ingestion. | IDs are generated using a URL hash concatenated with the chunk index (`{url_hash}-chunk-{i}`) to ensure every vector is unique upon upload. |
+| **Configuration** | Manages environment secrets and settings. | All configuration (`PINECONE_API_KEY`, `GEMINI_API_KEY`, etc.) is securely loaded from **Google Cloud Environment Variables** using `os.environ.get()`. |
 
-### Chunking Parameters
-- **Chunk Size**: 1000 characters
-- **Overlap**: 50 characters
-- **Batch Size**: 100 vectors per upload
+-----
 
-### Vector Database
-- **Dimensions**: 768
-- **Metric**: Cosine similarity
-- **Cloud**: AWS
-- **Region**: us-east-1
+## 🚀 Deployment and Usage
 
-## Deployment
+### Function Entry Point
 
-### 1. Prerequisites
-- Google Cloud Project with Cloud Functions enabled
-- API keys for Pinecone, Gemini, and Firecrawl
+  * **Function Name:** `ingest_data`
+  * **Trigger:** **HTTP** (The function executes upon receiving a POST request to its public URL).
 
-### 2. Deploy to Google Cloud
-```bash
-gcloud functions deploy ingest_data \
-  --runtime python311 \
-  --trigger-http \
-  --allow-unauthenticated \
-  --entry-point ingest_data \
-  --set-env-vars PINECONE_API_KEY=your_key,GEMINI_API_KEY=your_key,FIRECRAWL_API_KEY=your_key
-```
+### Metadata Structure
 
-### 3. Function Entry Point
-- **Function Name**: `ingest_data`
-- **Trigger**: HTTP
-- **Runtime**: Python 3.11
+Each vector includes the following metadata to enable RAG retrieval:
 
-## Usage
-
-### Scrape Single Page
-```bash
-curl -X POST https://YOUR_FUNCTION_URL \
-  -H "Content-Type: application/json"
-```
-
-### Scrape Multiple Pages
-Set environment variables:
-```
-CRAWL_MODE=crawl
-MAX_PAGES=50
-TARGET_URL=https://stripe.com/docs
-```
-
-## Response Format
-
-**Success:**
-```
-Success! Uploaded 177 of 177 chunks from 1 pages to index 'test-poc'
-Status: 200
-```
-
-**Error:**
-```
-Missing Environment Variables: PINECONE_API_KEY, GEMINI_API_KEY
-Status: 500
-```
-
-## How It Works
-
-1. **Web Scraping**: Firecrawl extracts clean markdown content from the target URL
-2. **Text Processing**: Content is split into overlapping chunks (1000 chars, 50 overlap)
-3. **Embedding Generation**: Each chunk is converted to a 768-dimensional vector using Gemini
-4. **Vector Storage**: Embeddings are uploaded to Pinecone with metadata (text, source, index)
-5. **Unique IDs**: URL hash ensures multiple sources can coexist without conflicts
-
-## Error Handling
-- Validates all required environment variables
-- Handles API errors gracefully
-- Skips problematic chunks without stopping the entire process
-- Provides detailed logging for debugging
-
-## Performance
-- **Batch uploads**: 100 vectors per request
-- **Concurrent processing**: Single-threaded for reliability
-- **Average time**: ~2-5 seconds per chunk (including embedding generation)
-
-## Integration with RAG Pipeline
-This function is designed to work with an n8n/Make.com workflow:
-1. **Ingestion** (This function): Populate vector database
-2. **Query** (n8n/Make): Retrieve relevant context
-3. **Generation** (LLM): Generate answers based on retrieved context
-
-## Metadata Structure
-Each vector includes:
-```python
+```json
 {
-  'id': 'a3f4b21c-chunk-0',
-  'values': [0.123, -0.456, ...],  # 768 dimensions
   'metadata': {
     'text': 'Chunk content...',
     'source': 'https://example.com/page',
@@ -136,17 +42,6 @@ Each vector includes:
   }
 }
 ```
-
-## Troubleshooting
-
-### Dimension Mismatch
-Ensure Pinecone index dimension (768) matches the embedding model output.
-
-### All Chunks Skipped
-Check Gemini API response structure - update `generate_embedding()` function if needed.
-
-### Firecrawl Errors
-Verify API key and URL format (must start with `http://` or `https://`).
 
 ## Dependencies
 - `firecrawl-py==1.5.0` - Web scraping
