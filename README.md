@@ -53,8 +53,6 @@ Each vector includes metadata for traceability and retrieval:
 - `google-genai==0.2.2` - Embedding generation
 - `pinecone==5.0.0` - Vector database
 
-## License
-This code is part of an AI Developer assignment for Hop Online.
 
 ## Author
 Author: Rostislav Atanasov
