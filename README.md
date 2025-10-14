@@ -1,47 +1,52 @@
-## 💻 Code Overview: Data Ingestion Module (`main.py`)
+## 💻 Data Ingestion Module (`main.py`)
 
-This document details the Google Cloud Function responsible for the **Data Ingestion** pipeline of the RAG (Retrieval-Augmented Generation) system. It ensures content is reliably scraped, vectorized, and stored in a queryable format.
+This Cloud Function powers the **data ingestion pipeline** for our Retrieval-Augmented Generation (RAG) system. It scrapes web content, chunks it for context preservation, embeds it using Gemini, and stores it in Pinecone for fast, semantic retrieval.
 
-### Architecture
+### ⚙️ Architecture
 
-The pipeline is **event-driven** and **serverless**:
+This is a fully **serverless**, **event-driven** pipeline:
 
-`HTTP Trigger` → `Firecrawl (Scraping)` → `Text Chunking` → `Gemini Embeddings` → `Pinecone Vector DB`
+```
+HTTP Trigger → Firecrawl (Scraping) → Text Chunking → Gemini Embeddings → Pinecone Vector DB
+```
 
------
+Each step is modular, production-safe, and optimized for scale.
 
-## ✨ Technical Highlights and Features
+---
 
-| Functionality | Purpose | Technical Implementation |
-| :--- | :--- | :--- |
-| **Intelligent Chunking** | Splits large text into RAG-ready segments. | Uses the custom **`chunk_text`** function with a **1000-character chunk size** and **50-character overlap** to preserve context. |
-| **Vector Embeddings** | Creates 768-dimensional vector representations. | Employs the **Gemini API** (`google.genai`) with the **`models/text-embedding-004`** model, guaranteeing dimensional consistency with the Pinecone index. |
-| **Batch Processing** | Ensures efficient, reliable uploads to the vector database. | **Critically implements batch processing (`BATCH_SIZE = 100`)** during `pinecone.upsert` within the `ingest_data` function. This solves potential **out-of-memory errors** and **timeouts** in the serverless environment. |
-| **Unique IDs** | Prevents data corruption on repeated ingestion. | IDs are generated using a URL hash concatenated with the chunk index (`{url_hash}-chunk-{i}`) to ensure every vector is unique upon upload. |
-| **Configuration** | Manages environment secrets and settings. | All configuration (`PINECONE_API_KEY`, `GEMINI_API_KEY`, etc.) is securely loaded from **Google Cloud Environment Variables** using `os.environ.get()`. |
+## ✨ Features and Engineering Notes
 
------
+| Feature | Purpose | Implementation |
+|--------|---------|----------------|
+| **Smart Chunking** | Preserves context across long-form content. | `chunk_text()` splits input into 1000-character blocks with 50-character overlap. |
+| **Consistent Embeddings** | Ensures compatibility with Pinecone. | Uses Gemini’s `text-embedding-004` model via `google.genai` (768-dim vectors). |
+| **Batch Uploads** | Prevents memory blowouts and timeouts. | `ingest_data()` batches vectors (`BATCH_SIZE = 100`) before calling `pinecone.upsert`. |
+| **Collision-Free IDs** | Avoids duplicate uploads. | Each chunk gets a unique ID: `{url_hash}-chunk-{i}`. |
+| **Secure Config** | Keeps secrets out of the codebase. | API keys and settings are loaded via `os.environ.get()` from GCP env vars. |
 
-## 🚀 Deployment and Usage
+---
 
-### Function Entry Point
+## 🚀 Deployment & Usage
 
-  * **Function Name:** `ingest_data`
-  * **Trigger:** **HTTP** (The function executes upon receiving a POST request to its public URL).
+### Entry Point
 
-### Metadata Structure
+- **Function Name:** `ingest_data`  
+- **Trigger:** HTTP POST to the Cloud Function URL
 
-Each vector includes the following metadata to enable RAG retrieval:
+### Metadata Format
+
+Each vector includes metadata for traceability and retrieval:
 
 ```json
 {
-  'metadata': {
-    'text': 'Chunk content...',
-    'source': 'https://example.com/page',
-    'chunk_index': 0
+  "metadata": {
+    "text": "Chunk content...",
+    "source": "https://example.com/page",
+    "chunk_index": 0
   }
 }
 ```
+
 
 ## Dependencies
 - `firecrawl-py==1.5.0` - Web scraping
