@@ -55,5 +55,5 @@ Each vector includes metadata for traceability and retrieval:
 
 
 ## Author
-Author: Rostislav Atanasov
-Created as part of the RAG System Proof-of-Concept assignment.
+-  Rostislav Atanasov
+-  Created as part of the RAG System Proof-of-Concept assignment.
