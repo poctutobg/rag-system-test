@@ -22,7 +22,7 @@ The function's core responsibility is to scrape web content from a specified URL
 - **Service:** Google Cloud Run
 - **Programming Language:** Python 3.13
 - **Key Libraries:**
-  - `google-generativeai`: For generating text embeddings.
+  - `google-genai`: For generating text embeddings.
   - `pinecone`: For interacting with the Pinecone vector database.
   - `firecrawl-py`: For reliable, Markdown-based web scraping.
 
