@@ -48,9 +48,12 @@ The following environment variables must be configured in the GCP environment fo
 
 Once deployed, the function can be triggered by sending an HTTP GET request to its public URL. This will initiate the scraping and ingestion process. The function's logs can be monitored in the Google Cloud Logging (Cloud Logging ) interface to track progress.
 
-- **Author**: Rostislav Atanasov  
-- **Purpose**: Candidate Assignment – AI Automation & RAG System  
+### 👤 Author Information
+
+- **Name**: Rostislav Atanasov  
+- **Purpose**: Candidate Assignment – AI Automation & RAG System
 - **Type**: Proof-of-Concept
+
 
 
 
