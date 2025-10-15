@@ -1,57 +1,52 @@
-## 💻 Data Ingestion Module (`main.py`)
+# RAG System: Data Ingestion Cloud Function
 
-This Cloud Function powers the **data ingestion pipeline** for our Retrieval-Augmented Generation (RAG) system. It scrapes web content, chunks it for context preservation, embeds it using Gemini, and stores it in Pinecone for fast, semantic retrieval.
+This repository contains the Python source code for a serverless Google Cloud Function designed for the data ingestion pipeline of a Retrieval-Augmented Generation (RAG) system.
 
-### ⚙️ Architecture
+This function was created as part of a candidate assignment to demonstrate skills in cloud services, AI development, and automation.
 
-This is a fully **serverless**, **event-driven** pipeline:
+## Overview
 
-```
-HTTP Trigger → Firecrawl (Scraping) → Text Chunking → Gemini Embeddings → Pinecone Vector DB
-```
+The function's core responsibility is to scrape web content from a specified URL, process it into smaller text chunks, generate vector embeddings for each chunk, and upload them to a Pinecone vector database. This creates a queryable knowledge base that a separate RAG pipeline can use to answer questions.
 
-Each step is modular, production-safe, and optimized for scale.
+## Features
 
----
+- **Flexible Scraping:** Utilizes the **Firecrawl API** for robust web scraping. It can be configured to either scrape a single page or crawl multiple pages of a website.
+- **Content Processing:** Implements a text chunking strategy to split large documents into smaller, overlapping pieces, preserving semantic context.
+- **Vectorization:** Leverages **Google's Gemini (`text-embedding-004`)** model to generate high-quality, 768-dimension vector embeddings for each text chunk.
+- **Vector Storage:** Connects to a **Pinecone** vector database and uploads the vectors in batches to efficiently populate the index.
+- **Configuration-Driven:** The entire process is controlled via environment variables, making it highly configurable without code changes.
 
-## ✨ Features and Engineering Notes
+## Technical Stack
 
-| Feature | Purpose | Implementation |
-|--------|---------|----------------|
-| **Smart Chunking** | Preserves context across long-form content. | `chunk_text()` splits input into 1000-character blocks with 50-character overlap. |
-| **Consistent Embeddings** | Ensures compatibility with Pinecone. | Uses Gemini’s `text-embedding-004` model via `google.genai` (768-dim vectors). |
-| **Batch Uploads** | Prevents memory blowouts and timeouts. | `ingest_data()` batches vectors (`BATCH_SIZE = 100`) before calling `pinecone.upsert`. |
-| **Collision-Free IDs** | Avoids duplicate uploads. | Each chunk gets a unique ID: `{url_hash}-chunk-{i}`. |
-| **Secure Config** | Keeps secrets out of the codebase. | API keys and settings are loaded via `os.environ.get()` from GCP env vars. |
+- **Cloud Platform:** Google Cloud Platform (GCP)
+- **Service:** Google Cloud Run
+- **Programming Language:** Python 3.13
+- **Key Libraries:**
+  - `google-generativeai`: For generating text embeddings.
+  - `pinecone`: For interacting with the Pinecone vector database.
+  - `firecrawl-py`: For reliable, Markdown-based web scraping.
 
----
+## How to Use
 
-## 🚀 Deployment & Usage
+This function is designed to be deployed as an HTTP-triggered Google Cloud Function.
 
-### Entry Point
+### Environment Variables
 
-- **Function Name:** `ingest_data`  
-- **Trigger:** HTTP POST to the Cloud Function URL
+The following environment variables must be configured in the GCP environment for the function to operate correctly:
 
-### Metadata Format
+| Variable | Description | Example |
+| :--- | :--- | :--- |
+| `TARGET_URL` | The starting URL to scrape. | `https://stripe.com/docs/api` |
+| `PINECONE_API_KEY` | Your API key for Pinecone. | `xxxx-xxxx-xxxx-xxxx` |
+| `GEMINI_API_KEY` | Your API key for Google AI Studio. | `AIzaSy...` |
+| `FIRECRAWL_API_KEY` | Your API key for Firecrawl. | `fc-xxxx...` |
+| `INDEX_NAME` | The name of the target index in Pinecone. | `stripe-api-docs` |
+| `CRAWL_MODE` | The scraping mode. Can be `single` or `crawl`. | `single` |
+| `MAX_PAGES` | The maximum number of pages to scrape in `crawl` mode. | `5` |
 
-Each vector includes metadata for traceability and retrieval:
+### Triggering the Function
 
-```json
-{
-  "metadata": {
-    "text": "Chunk content...",
-    "source": "https://example.com/page",
-    "chunk_index": 0
-  }
-}
-```
-
-
-## Dependencies
-- `firecrawl-py==1.5.0` - Web scraping
-- `google-genai==0.2.2` - Embedding generation
-- `pinecone==5.0.0` - Vector database
+Once deployed, the function can be triggered by sending an HTTP GET request to its public URL. This will initiate the scraping and ingestion process. The function's logs can be monitored in the Google Cloud Logging interface to track progress.
 
 
 ## Author
