@@ -19,11 +19,11 @@ The function's core responsibility is to scrape web content from a specified URL
 ## Technical Stack
 
 - **Cloud Platform:** Google Cloud Platform (GCP)
-- **Service:** Google Cloud Functions (2nd Gen)
-- **Programming Language:** Python 3.12
+- **Service:** Google Cloud Run
+- **Programming Language:** Python 3.13
 - **Key Libraries:**
-  - `google-generativeai`: For generating text embeddings.
-  - `pinecone-client`: For interacting with the Pinecone vector database.
+  - `google-genai`: For generating text embeddings.
+  - `pinecone`: For interacting with the Pinecone vector database.
   - `firecrawl-py`: For reliable, Markdown-based web scraping.
 
 ## How to Use
@@ -47,3 +47,4 @@ The following environment variables must be configured in the GCP environment fo
 ### Triggering the Function
 
 Once deployed, the function can be triggered by sending an HTTP GET request to its public URL. This will initiate the scraping and ingestion process. The function's logs can be monitored in the Google Cloud Logging (Cloud Logging ) interface to track progress.
+
