@@ -5,11 +5,13 @@ from google import genai
 from pinecone import Pinecone
 
 # Configuration from environment variables
-TARGET_URL = os.environ.get('TARGET_URL', 'https://docs.stripe.com/api/')
+TARGET_URL = os.environ.get('TARGET_URL', 'https://docs.stripe.com/api')
 PINECONE_API_KEY = os.environ.get('PINECONE_API_KEY')
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 FIRECRAWL_API_KEY = os.environ.get('FIRECRAWL_API_KEY')
 INDEX_NAME = os.environ.get('INDEX_NAME', 'stripe-api')
+CRAWL_MODE = os.environ.get('CRAWL_MODE', 'crawl')  # 'single' or 'crawl'
+MAX_PAGES = int(os.environ.get('MAX_PAGES', '5'))  # Max pages when crawling
 
 
 def chunk_text(text, chunk_size=1000, overlap=50):
@@ -30,6 +32,50 @@ def chunk_text(text, chunk_size=1000, overlap=50):
     return chunks
 
 
+def scrape_content(url, api_key, mode='single', max_pages=5):
+    """Scrape website using Firecrawl - supports single page or crawl mode"""
+    app = FirecrawlApp(api_key=api_key)
+    results = []
+    
+    if mode == 'crawl':
+        print(f"Crawling website: {url} (max {max_pages} pages)")
+        
+        crawl_result = app.crawl_url(
+            url,
+            params={
+                'limit': max_pages,
+                'scrapeOptions': {
+                    'formats': ['markdown']
+                }
+            }
+        )
+        
+        if crawl_result and 'data' in crawl_result:
+            for page in crawl_result['data']:
+                if 'markdown' in page and page['markdown']:
+                    results.append({
+                        'url': page.get('url', url),
+                        'content': page['markdown']
+                    })
+                    print(f"Crawled: {page.get('url', 'unknown')}")
+        
+        print(f"Total pages crawled: {len(results)}")
+    
+    else:
+        # Single page mode
+        print(f"Scraping single page: {url}")
+        result = app.scrape_url(url, params={'formats': ['markdown']})
+        
+        if result and 'markdown' in result:
+            results.append({
+                'url': url,
+                'content': result['markdown']
+            })
+            print(f"Scraped {len(result['markdown'])} characters")
+    
+    return results if results else None
+
+
 def ingest_data(request):
     """Main function - scrapes website and uploads to Pinecone"""
     
@@ -38,23 +84,27 @@ def ingest_data(request):
         return "Error: Missing API keys", 500
     
     try:
-        print(f"Starting ingestion for: {TARGET_URL}")
+        print(f"Starting ingestion for: {TARGET_URL} (mode: {CRAWL_MODE})")
         
         # Step 1: Scrape website with Firecrawl
-        app = FirecrawlApp(api_key=FIRECRAWL_API_KEY)
-        result = app.scrape_url(TARGET_URL, params={'formats': ['markdown']})
+        scraped_pages = scrape_content(TARGET_URL, FIRECRAWL_API_KEY, CRAWL_MODE, MAX_PAGES)
         
-        if not result or 'markdown' not in result:
+        if not scraped_pages:
             return "Error: Failed to scrape content", 500
         
-        content = result['markdown']
-        print(f"Scraped {len(content)} characters")
+        # Step 2: Process all pages and create chunks
+        all_chunks = []
+        for page in scraped_pages:
+            chunks = chunk_text(page['content'])
+            for chunk in chunks:
+                all_chunks.append({
+                    'text': chunk,
+                    'source': page['url']
+                })
         
-        # Step 2: Split into chunks
-        chunks = chunk_text(content)
-        print(f"Created {len(chunks)} chunks")
+        print(f"Created {len(all_chunks)} chunks from {len(scraped_pages)} pages")
         
-        if not chunks:
+        if not all_chunks:
             return "No content to process", 200
         
         # Step 3: Initialize Gemini and Pinecone
@@ -66,12 +116,12 @@ def ingest_data(request):
         uploaded = 0
         batch = []
         
-        for i, chunk in enumerate(chunks):
+        for i, chunk_data in enumerate(all_chunks):
             try:
                 # Generate embedding
                 response = gemini_client.models.embed_content(
                     model='models/text-embedding-004',
-                    contents=chunk
+                    contents=chunk_data['text']
                 )
                 
                 # Extract vector
@@ -88,8 +138,8 @@ def ingest_data(request):
                     'id': f'chunk-{i}',
                     'values': vector,
                     'metadata': {
-                        'text': chunk[:500],
-                        'source': TARGET_URL
+                        'text': chunk_data['text'][:500],
+                        'source': chunk_data['source']
                     }
                 })
                 
@@ -110,8 +160,8 @@ def ingest_data(request):
             index.upsert(vectors=batch)
             uploaded += len(batch)
         
-        print(f"Complete! Uploaded {uploaded} chunks")
-        return f"Success: Uploaded {uploaded} chunks to {INDEX_NAME}", 200
+        print(f"Complete! Uploaded {uploaded} chunks from {len(scraped_pages)} pages")
+        return f"Success: Uploaded {uploaded} chunks from {len(scraped_pages)} pages to {INDEX_NAME}", 200
         
     except Exception as e:
         print(f"Error: {e}")
